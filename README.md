@@ -8,9 +8,16 @@ tasks, and trainers are swappable via config.
 
 ```bash
 uv sync
-uv run python -m manip_rl.viz.render --env PandaPickCube        # smoke test → mp4
-uv run python -m manip_rl.training.ppo_brax --env PandaPickCube # baseline PPO
+uv run python -m manip_rl.viz.render --env ManipPickPlace        # smoke test → mp4
+uv run python -m manip_rl.training.ppo --env ManipPickPlace      # CleanRL-style PPO (primary)
+uv run python -m manip_rl.training.ppo_brax --env PandaPickCube  # brax PPO baseline
+uv run python -m manip_rl.training.evaluate --env ManipPickPlace --policy runs/<dir> --video
+uv run python -m manip_rl.planning.demo --video                  # RRT approach + grasp demo
 ```
+
+Heads-up: the first run of any trainer spends a long time (tens of minutes on
+CPU) in XLA compilation before printing progress — that's normal. Use small
+`--num-envs/--total-timesteps` while iterating.
 
 ## GPU (AMD ROCm)
 
