@@ -8,7 +8,9 @@ dependencies = [
     "mujoco-mjx>=3.2",
     "brax>=0.12",
     "playground>=0.0.5",
-    "jax>=0.4.35",
+    # brax (<=0.14) still uses APIs removed in jax 0.10; 0.8.x also matches the
+    # jax-rocm7 plugin wheels (docs/rocm_setup.md).
+    "jax==0.8.*",
     "ml-collections>=1.0",
     "mediapy>=1.2",
     "matplotlib>=3.9",
