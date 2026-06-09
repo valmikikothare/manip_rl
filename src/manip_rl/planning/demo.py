@@ -61,18 +61,23 @@ def main():
 
     rng = jax.random.PRNGKey(args.seed + 1)
     states, total_reward = [state], 0.0
+    pregrasp = obj_pos0 + np.array([0.0, 0.0, 0.12])
+    approach_err = None
     for t in range(env._config.episode_length):
         rng, act_rng = jax.random.split(rng)
         action = agent.act(state, t, act_rng)
         state = jit_step(state, jax.numpy.asarray(action, dtype=jax.numpy.float32))
         states.append(state)
         total_reward += float(state.reward)
+        if t == args.approach_steps - 1:
+            ee = np.asarray(state.data.site_xpos[env.ee_site_id])
+            approach_err = np.linalg.norm(ee - pregrasp)
         if bool(state.done):
             break
 
-    ee = np.asarray(state.data.site_xpos[env.ee_site_id])
     print(f"episode return: {total_reward:.2f}")
-    print(f"final ee pos:   {ee}, pregrasp target was {obj_pos0 + [0, 0, 0.12]}")
+    print(f"approach: ee-to-pregrasp error {approach_err:.3f} m "
+          f"({'OK' if approach_err is not None and approach_err < 0.05 else 'MISSED'})")
     print(f"plan active at end: {agent.plan_active}")
 
     if args.video:

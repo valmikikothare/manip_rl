@@ -72,11 +72,18 @@ def main():
             flush=True,
         )
 
+    def checkpoint(current_step, make_policy, params):
+        # Called by brax at every eval; keeps progress if the run is killed.
+        del make_policy
+        save_policy(run_dir, params, network_factory_kwargs,
+                    env.observation_size, env.action_size)
+
     train_fn = functools.partial(
         ppo.train,
         **ppo_training_params,
         network_factory=network_factory,
         progress_fn=progress,
+        policy_params_fn=checkpoint,
         seed=args.seed,
     )
     make_inference_fn, params, _ = train_fn(

@@ -278,6 +278,19 @@ def train(args: Args):
         return rewards.sum(0).mean(), successes.max(0).mean()
 
     # --- main loop ------------------------------------------------------------------
+    def save(actor_ts, norms, history):
+        payload = {
+            "format": "cleanrl_ppo",
+            "actor_params": jax.device_get(actor_ts.params),
+            "norms": jax.device_get(norms),
+            "args": dataclasses.asdict(args),
+            "pobs_dim": pobs_dim,
+            "act_dim": act_dim,
+        }
+        with open(run_dir / "policy.pkl", "wb") as f:
+            pickle.dump(payload, f)
+        (run_dir / "history.json").write_text(json.dumps(history, indent=2))
+
     print(f"{args.env}: {num_iterations} iterations x {batch_size} steps "
           f"({args.num_envs} envs), policy obs {pobs_dim}, value obs {vobs_dim}")
     carry = (actor_ts, critic_ts, norms, state0, key)
@@ -299,19 +312,10 @@ def train(args: Args):
             print(f"[{entry['wall_time']:7.1f}s] steps={entry['steps']:>10,} "
                   f"eval_reward={entry['reward']:8.2f} success={entry['success']:.2f}",
                   flush=True)
+            # Checkpoint at every eval so interrupted runs keep their progress.
+            save(actor_ts, norms, history)
 
-    actor_ts, critic_ts, norms = carry[0], carry[1], carry[2]
-    payload = {
-        "format": "cleanrl_ppo",
-        "actor_params": jax.device_get(actor_ts.params),
-        "norms": jax.device_get(norms),
-        "args": dataclasses.asdict(args),
-        "pobs_dim": pobs_dim,
-        "act_dim": act_dim,
-    }
-    with open(run_dir / "policy.pkl", "wb") as f:
-        pickle.dump(payload, f)
-    (run_dir / "history.json").write_text(json.dumps(history, indent=2))
+    save(carry[0], carry[2], history)
     print(f"\nSaved policy + history to {run_dir}")
     print(f"Render with: uv run python -m manip_rl.viz.render --env {args.env} "
           f"--policy {run_dir}")

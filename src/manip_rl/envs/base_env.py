@@ -116,6 +116,9 @@ class ManipulationEnv(mjx_env.MjxEnv):
             mocap_pos=data.mocap_pos.at[self._goal_mocapid, :].set(target_pos),
             mocap_quat=data.mocap_quat.at[self._goal_mocapid, :].set(target_quat),
         )
+        # make_data leaves xpos/site_xpos zeroed; populate kinematics so the
+        # reset observation (and anything reading poses pre-step) is valid.
+        data = mjx.forward(self._mjx_model, data)
 
         info = {
             "rng": rng,
