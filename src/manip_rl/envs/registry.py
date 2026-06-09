@@ -40,6 +40,8 @@ class PandaPickPlaceOrientation(ManipulationEnv):
 
 
 def _register():
+    from manip_rl.envs.randomize import domain_randomize
+
     manipulation.register_environment(
         "ManipPickPlace", PandaPickPlace, lambda: make_config(PickPlace())
     )
@@ -48,6 +50,11 @@ def _register():
         PandaPickPlaceOrientation,
         lambda: make_config(PickPlace(sample_orientation=True)),
     )
+    # register_environment doesn't take a randomizer, but the module-level
+    # dict backs registry.get_domain_randomizer; env ids are resolved lazily
+    # inside the randomizer itself (it takes env=None for the generic case).
+    manipulation._randomizer["ManipPickPlace"] = domain_randomize
+    manipulation._randomizer["ManipPickPlaceOrientation"] = domain_randomize
 
 
 _register()
