@@ -32,10 +32,12 @@ HSA_OVERRIDE_GFX_VERSION=10.3.0 uv run python scripts/check_gpu.py
 
 ## Layout
 
-- `src/manip_rl/robots/` — embodiment configs (`RobotConfig`)
-- `src/manip_rl/envs/` — `MjxEnv` task environments + Playground registry glue
+- `src/manip_rl/robots/` — embodiment configs (`RobotConfig`); Panda today
+- `src/manip_rl/envs/` — `ManipulationEnv` (`RobotConfig` + `Task`) + Playground registry glue
 - `src/manip_rl/training/` — CleanRL-style JAX PPO (primary), brax PPO, Gymnasium adapter
-- `src/manip_rl/planning/` — classical planners (RRT*) + hierarchical policy/planner agent
+- `src/manip_rl/planning/` — classical planners (RRT + IK) + hierarchical policy/planner agent
 - `src/manip_rl/viz/` — rollout rendering
-- `experiments/configs/` — experiment configs
 - `notebooks/` — reference notebook exports
+- `docs/` — ROCm/GPU setup notes
+
+See [CLAUDE.md](CLAUDE.md) for the full architecture and conventions.
