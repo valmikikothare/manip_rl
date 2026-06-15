@@ -2,6 +2,18 @@
 
 import os
 
+# ROCm/RDNA2 fix (must run before `import jax`, i.e. before the XLA backend is
+# created and reads XLA_FLAGS): XLA captures jitted scan/while bodies into HIP
+# graphs (command buffers), but HIP-graph stream updates are broken on this
+# stack — they raise "UpdateStreams failed" (hip_graph_internal.cpp) and SIGSEGV
+# the process the moment a graph-captured step runs (e.g. the brax PPO training
+# step; plain eval, which isn't graph-captured, runs fine). Disabling command
+# buffers stops graph capture. No-op on CPU/CUDA, so it's always safe to set.
+if "xla_gpu_enable_command_buffer" not in os.environ.get("XLA_FLAGS", ""):
+    os.environ["XLA_FLAGS"] = (
+        os.environ.get("XLA_FLAGS", "") + " --xla_gpu_enable_command_buffer="
+    ).strip()
+
 import jax
 
 # Persistent XLA compilation cache: recompiling the Panda scene costs minutes

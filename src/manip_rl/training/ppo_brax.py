@@ -20,22 +20,31 @@ from brax.training.agents.ppo import train as ppo
 from mujoco_playground import wrapper
 from mujoco_playground.config import manipulation_params
 
-from manip_rl.envs.registry import get_config, load_env
+from manip_rl.envs.registry import load_env
 from manip_rl.training.checkpoints import save_policy
+
+# Do NOT enable jax_enable_x64 here. MJX/Playground/brax PPO all run in float32;
+# float64 kernels hard-crash (SIGSEGV) on the ROCm RDNA2 card (gfx1032 ->
+# gfx1030 impersonation), whose FP64 path is unusable. x64 is not needed for
+# correct physics — the float32 GPU step matches the CPU step to ~1e-6.
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env", default="PandaPickCube")
+    parser.add_argument("--env", default="PandaPickCubeOrientation")
     parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--out", default=None, help="run dir (default runs/<env>-<time>)")
+    parser.add_argument(
+        "--out", default=None, help="run dir (default runs/<env>-<time>)"
+    )
     # CPU-friendly overrides; None keeps the env's published hyperparameters.
     parser.add_argument("--num-timesteps", type=int, default=None)
     parser.add_argument("--num-envs", type=int, default=None)
     parser.add_argument("--num-evals", type=int, default=None)
     args = parser.parse_args()
 
-    run_dir = pathlib.Path(args.out or f"runs/{args.env}-{time.strftime('%Y%m%d-%H%M%S')}")
+    run_dir = pathlib.Path(
+        args.out or f"runs/{args.env}-{time.strftime('%Y%m%d-%H%M%S')}"
+    )
     run_dir.mkdir(parents=True, exist_ok=True)
 
     env = load_env(args.env)
@@ -74,9 +83,14 @@ def main():
 
     def checkpoint(current_step, make_policy, params):
         # Called by brax at every eval; keeps progress if the run is killed.
-        del make_policy
-        save_policy(run_dir, params, network_factory_kwargs,
-                    env.observation_size, env.action_size)
+        del current_step, make_policy
+        save_policy(
+            run_dir,
+            params,
+            network_factory_kwargs,
+            env.observation_size,
+            env.action_size,
+        )
 
     train_fn = functools.partial(
         ppo.train,
@@ -86,18 +100,21 @@ def main():
         policy_params_fn=checkpoint,
         seed=args.seed,
     )
-    make_inference_fn, params, _ = train_fn(
+    _, params, _ = train_fn(
         environment=env,
         eval_env=eval_env,
         wrap_env_fn=wrapper.wrap_for_brax_training,
     )
 
-    save_policy(run_dir, params, network_factory_kwargs,
-                env.observation_size, env.action_size)
+    save_policy(
+        run_dir, params, network_factory_kwargs, env.observation_size, env.action_size
+    )
     (run_dir / "history.json").write_text(json.dumps(history, indent=2))
     print(f"\nSaved policy + history to {run_dir}")
-    print(f"Render with: uv run python -m manip_rl.viz.render --env {args.env} "
-          f"--policy {run_dir}")
+    print(
+        f"Render with: uv run python -m manip_rl.viz.render --env {args.env} "
+        f"--policy {run_dir}"
+    )
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ _TEST_XML = """
 </mujoco>
 """
 
-NUM_ENVS = 256
+NUM_ENVS = 2048
 NUM_STEPS = 200
 
 
@@ -42,15 +42,16 @@ def rollout(device, num_envs: int, num_steps: int):
     with jax.default_device(device):
         mjx_model = mjx.put_model(model)
         data = mjx.make_data(mjx_model)
-        batch = jax.vmap(
-            lambda dq: data.replace(qpos=data.qpos + 0.001 * dq)
-        )(jp.arange(num_envs, dtype=jp.float32))
+        batch = jax.vmap(lambda dq: data.replace(qpos=data.qpos + 0.001 * dq))(
+            jp.arange(num_envs, dtype=jp.float32)
+        )
 
         @jax.jit
         def run(d):
             def body(d, _):
                 d = jax.vmap(mjx.step, in_axes=(None, 0))(mjx_model, d)
                 return d, None
+
             d, _ = jax.lax.scan(body, d, None, length=num_steps)
             return d
 
@@ -74,18 +75,24 @@ def main():
     print(f"\nCPU:  {steps / t_cpu:,.0f} env-steps/s ({t_cpu:.2f}s)")
 
     if not gpus:
-        print("\nNo GPU backend. CPU-only install — this is fine; see docs/rocm_setup.md to enable ROCm.")
+        print(
+            "\nNo GPU backend. CPU-only install — this is fine; see docs/rocm_setup.md to enable ROCm."
+        )
         return
 
     qpos_gpu, t_gpu = rollout(gpus[0], NUM_ENVS, NUM_STEPS)
-    print(f"GPU:  {steps / t_gpu:,.0f} env-steps/s ({t_gpu:.2f}s)  [{t_cpu / t_gpu:.1f}x vs CPU]")
+    print(
+        f"GPU:  {steps / t_gpu:,.0f} env-steps/s ({t_gpu:.2f}s)  [{t_cpu / t_gpu:.1f}x vs CPU]"
+    )
 
     # Physics parity: identical inputs, loose tolerance (different float orders).
     err = np.max(np.abs(qpos_cpu - qpos_gpu))
     print(f"\nmax |qpos_cpu - qpos_gpu| = {err:.2e}")
     if err > 1e-2 or not np.isfinite(qpos_gpu).all():
-        print("WARNING: GPU physics diverges from CPU — do not trust GPU training "
-              "(known risk of the gfx version override).")
+        print(
+            "WARNING: GPU physics diverges from CPU — do not trust GPU training "
+            "(known risk of the gfx version override)."
+        )
     else:
         print("GPU physics matches CPU within tolerance. Good to go.")
 
